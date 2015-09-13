@@ -1,0 +1,4 @@
+corenlp1="http://10.16.32.103:9003/corenlp"
+ollie ="http://10.16.32.103:9003/ollie"
+openie4 ="http://10.16.32.103:9004/openie"
+openie5 ="http://10.16.32.103:9005/openie"
