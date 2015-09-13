@@ -1,0 +1,2 @@
+corenlp = "http://localhost:9003/corenlp"
+ollie = "http://localhost:9003/ollie"

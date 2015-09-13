@@ -1,0 +1,3 @@
+cmu_search_url="http://rtw.ml.cmu.edu/qrelay/qrelay"
+api_search_url="http://ajax.googleapis.com/ajax/services/search/web?v=1.0&"
+cse_search_url="https://www.googleapis.com/customsearch/v1"
