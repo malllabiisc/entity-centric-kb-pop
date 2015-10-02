@@ -33,7 +33,7 @@ class WordPOSTag:
 inputPhrase = raw_input('input phrase: ')
 words = word_tokenize(inputPhrase)
 pos_tags = pos_tag(words)
-print pos_tags
+# print pos_tags
 pos_tag_objects = []
 final_noun_phrases = {}
 for w in pos_tags:
@@ -67,9 +67,9 @@ for i in range(len(pos_tag_objects)):
 					final_noun_phrases.update({index:obj_list})
 
 key_list = final_noun_phrases.keys()
-print key_list
-print "...........NPs.........."
-print final_noun_phrases
+# print key_list
+# print "...........NPs.........."
+# print final_noun_phrases
 key_list.sort()
 for i in key_list:
 	obj_list = final_noun_phrases.get(i)
