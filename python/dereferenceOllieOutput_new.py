@@ -28,7 +28,6 @@ replaceList = []
 def xmlParseCorefResult(xmlStr):
     #xmldoc = minidom.parse(filename) #enter the xml filename here
     try:
-        print "xmlStr type: ",type(xmlStr)
         xmldoc = xml.dom.minidom.parseString(xmlStr)
         coreftag = xmldoc.getElementsByTagName('coreference')[0] #returns a list of things withing tag
         # print coreftag
@@ -38,7 +37,6 @@ def xmlParseCorefResult(xmlStr):
         coref = []
     # print coref
     corefdata = []
-
     try:
         for ref in coref:
             mention = ref.getElementsByTagName('mention')
@@ -54,6 +52,7 @@ def xmlParseCorefResult(xmlStr):
                 head = m.getElementsByTagName('head')
                 # print head.firstChild.data
                 text = m.getElementsByTagName('text')
+
                 # print text.firstChild.data
                 sen = int(sentence[0].firstChild.data)
                 begin = int(start[0].firstChild.data)
@@ -73,7 +72,8 @@ def xmlParseCorefResult(xmlStr):
                 m_counter += 1
             corefdata.append(listofelemsforref)
     except:
-        print "parse error$$$$"
+        print "xml error "
+        corefdata = []
     return corefdata
 
 def createPronounDict():
@@ -105,12 +105,12 @@ def getRelationAndEntity(line):
     return None,None;
 
     
-def printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,xmlFN):
+def printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,url):
     global allExt
-    allExt = mdb.mongodbDatabase('all_ext_collection_new')
+    allExt = mdb.mongodbDatabase('all_ext_collection')
     allExtCol = allExt.docCollection
     
-    extObj = allExtCol.find_one({'primaryEnt':primaryEnt})
+    extObj = allExtCol.find_one({'primaryEnt':primaryEnt,'url':url})
     if extObj == None:
         finalList = []
     else:
@@ -123,10 +123,10 @@ def printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,xmlFN):
                 extractionLine = extlist[e].strip('\n')
                 finalList.append(extractionLine)
     if extObj == None:
-        allExtCol.insert_one({'primaryEnt':primaryEnt, 'extList':finalList})
+        allExtCol.insert_one({'primaryEnt':primaryEnt, 'url':url, 'extList':finalList})
     else:
-        d = {'primaryEnt':primaryEnt, 'extList':finalList}
-        allExtCol.replace_one({'primaryEnt':primaryEnt},d,True)
+        d = {'primaryEnt':primaryEnt, 'url':url, 'extList':finalList}
+        allExtCol.replace_one({'primaryEnt':primaryEnt, 'url':url},d,True)
     allExt.client.close()
 
 def multiplePronoun(coreflist):
@@ -171,56 +171,58 @@ def pronounMatching(entity,ent_no,pro,noun):
 def ReplacingRules(entRelList,noun,pro):
     global pronounDict
     pronounDict = {}
-    
-    createPronounDict()
-    line = ""
-    line = ' '.join(entRelList)
-    if pro.lower()==noun.lower():
-        return (False,0,0)
-##    if(len(word_tokenize(noun))>5):
-##        return (False,0,0)
-    if (noun.lower() in line.lower().strip()) and (noun.lower() not in pro.lower()):
-        return (False,0,0)
-    
-    noun_replace = True
-    tokens = word_tokenize(noun)
-    postag = pos_tag(tokens)
-    for w in postag:
-        if(not(w[1].startswith("NN") or w[1]=="JJ") and len(w[0])>1):
-            noun_replace = False
-    if len(word_tokenize(pro)) == 1:
-        bool,eno,index = pronounMatching(entRelList[0],0,pro,noun)
-        if(bool!=None):
-            return bool,eno,index
+    try:
+        createPronounDict()
+        line = ""
+        line = ' '.join(entRelList)
+        if pro.lower()==noun.lower():
+            return (False,0,0)
+    ##    if(len(word_tokenize(noun))>5):
+    ##        return (False,0,0)
+        if (noun.lower() in line.lower().strip()) and (noun.lower() not in pro.lower()):
+            return (False,0,0)
         
-        bool,eno,index = pronounMatching(entRelList[2],2,pro,noun)
-        if(bool!=None):
-            return bool,eno,index
-    elif(pro in entRelList[0] and noun_replace):     # if pronoun is a list of words, then find the count of substrings
-        noOfPro = 0
-        if(entRelList[0].find(pro)==0 and len(entRelList[0])==len(pro)):
-            noOfPro =  entRelList[0].count(pro)
-        elif(entRelList[0].find(pro)==0):
-            noOfPro =  entRelList[0].count(pro+' ')
-        elif(entRelList[0].find(pro)== len(entRelList[0])-len(pro)):
-            noOfPro =  entRelList[0].count(' '+pro)
-        else:
-            noOfPro =  entRelList[0].count(' '+pro+' ')
-        if(noOfPro==1):
-            return (True,0,-1)                                          # if only one appearance, then replace it by whole,no need to tokenize.
-    elif(pro in entRelList[2] and noun_replace):     
-        noOfPro = 0
-        if(entRelList[2].find(pro)==0 and len(entRelList[2])==len(pro)):
-            noOfPro =  entRelList[2].count(pro)
-        elif(entRelList[2].find(pro)==0):
-            noOfPro =  entRelList[2].count(pro+' ')
-        elif(entRelList[2].find(pro)== len(entRelList[2])-len(pro)):
-            noOfPro =  entRelList[2].count(' '+pro)
-        else:
-            noOfPro =  entRelList[2].count(' '+pro+' ')
-        if(noOfPro==1):
-            return (True,2,-1)    
-    
+        noun_replace = True
+        tokens = word_tokenize(noun)
+        postag = pos_tag(tokens)
+        for w in postag:
+            if(not(w[1].startswith("NN") or w[1]=="JJ") and len(w[0])>1):
+                noun_replace = False
+        if len(word_tokenize(pro)) == 1:
+            bool,eno,index = pronounMatching(entRelList[0],0,pro,noun)
+            if(bool!=None):
+                return bool,eno,index
+            
+            bool,eno,index = pronounMatching(entRelList[2],2,pro,noun)
+            if(bool!=None):
+                return bool,eno,index
+        elif(pro in entRelList[0] and noun_replace):     # if pronoun is a list of words, then find the count of substrings
+            noOfPro = 0
+            if(entRelList[0].find(pro)==0 and len(entRelList[0])==len(pro)):
+                noOfPro =  entRelList[0].count(pro)
+            elif(entRelList[0].find(pro)==0):
+                noOfPro =  entRelList[0].count(pro+' ')
+            elif(entRelList[0].find(pro)== len(entRelList[0])-len(pro)):
+                noOfPro =  entRelList[0].count(' '+pro)
+            else:
+                noOfPro =  entRelList[0].count(' '+pro+' ')
+            if(noOfPro==1):
+                return (True,0,-1)                                          # if only one appearance, then replace it by whole,no need to tokenize.
+        elif(pro in entRelList[2] and noun_replace):     
+            noOfPro = 0
+            if(entRelList[2].find(pro)==0 and len(entRelList[2])==len(pro)):
+                noOfPro =  entRelList[2].count(pro)
+            elif(entRelList[2].find(pro)==0):
+                noOfPro =  entRelList[2].count(pro+' ')
+            elif(entRelList[2].find(pro)== len(entRelList[2])-len(pro)):
+                noOfPro =  entRelList[2].count(' '+pro)
+            else:
+                noOfPro =  entRelList[2].count(' '+pro+' ')
+            if(noOfPro==1):
+                return (True,2,-1)    
+    except:
+        return (False,0,0)
+
     return (False,0,0)
 
 def getCount(str1,str2):
@@ -291,11 +293,12 @@ def ReplaceCorefPointers(primaryEntity):
     dbObj = mdb.mongodbDatabase('tmp_collection')
     tempCol = dbObj.docCollection
     colList = tempCol.find({'primaryEnt':primaryEntity})
-    key = 0;
+    key = '';
     for tmp in colList:
         ollieDataList = tmp['openie']
         corenlpData = tmp['corenlp']
         url = tmp['url']
+        key = url
         #initialise dictionaries
         sentenceToExtractionMap = {} 
         sentencewiseCorefResultDict = {}
@@ -305,9 +308,7 @@ def ReplaceCorefPointers(primaryEntity):
         perSentenceData = []        # holds sentence + all extractions of a sentence from ollie output
         
         for ollie in ollieDataList:
-            if(type(ollie) == type([])):
-                print ollie,"WTFWTFWTFWTFWTWFS"
-                ollie = ' '.join(ollie)
+            ollie = ollie.encode('utf-8','ignore')
             lines = ollie.split('\n')
             
             extractionList.append(lines)
@@ -372,7 +373,6 @@ def ReplaceCorefPointers(primaryEntity):
         dictlist.append(sentencewiseCorefResultDict)
         dictlist.append(sentenceToExtractionMap)
         filewiseInfoDict.update({key:dictlist})
-        key = key + 1
         
     nounAfterDict = {}
     for dicts in filewiseInfoDict.keys():
@@ -386,7 +386,7 @@ def ReplaceCorefPointers(primaryEntity):
                 if len(nounprolist) != 0:    
                     noun = nounprolist[0].strip()
                     pronoun = nounprolist[1].strip()
-                    #print "noun ", noun, " pronoun ", pronoun
+                    # print "noun ", noun, " pronoun ", pronoun
                     extList = sentenceToExtractionMap.get(sentNo)
                     
                     if(extList != None):
@@ -494,11 +494,13 @@ def ReplaceCorefPointers(primaryEntity):
                                     newline_i = score+': ('+ereList[0] + ';'+ereList[1] + ';'+ereList[2] + ')'
                                     extList[i] = newline_i
                     sentenceToExtractionMap.update({sentNo:extList})
-        
+  
+        xmlfileName = str(dicts)
+        printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,xmlfileName)    
 #######################################################
 ##           Write the outut to the files            ##
 #######################################################
-        xmlfileName = str(dicts) +'.txt'
-        printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,xmlfileName)
+        # xmlfileName = str(dicts) +'.txt'
+        # printToFile(sentenceToExtractionMap,sentencewiseCorefResultDict,xmlfileName)
     dbObj.client.close()
     

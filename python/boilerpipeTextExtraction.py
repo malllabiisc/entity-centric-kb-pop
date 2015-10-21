@@ -19,15 +19,17 @@ from coref_openIE import getTripleList
 import pymongo
 from pymongo import MongoClient
 import mongodbClass as mdb
+from pdfreader import convert
 
 ##
 #read Keys
 ##
 keys = {}
-#get keys for google query
 execfile("config/keys.txt", keys)
 api_key = keys["api_key"]
 cx_key = keys["cx_key"]
+cmu_key = keys["cmu_key"]
+
 ##
 #read urls
 ##
@@ -67,7 +69,7 @@ def parseJson_custom_search(jsonString):
 # parse response to get the links
 ####
 def getLinks_custom_search(searchfor):
-    
+
     params = {
             'key': api_key,
             'cx':cx_key,
@@ -76,7 +78,7 @@ def getLinks_custom_search(searchfor):
     request_url = cse_search_url + '?' + urllib.urlencode(params)
 
     #print "url",request_url
-    
+
     hits=[];
     try:
         headers = { 'User-Agent' : 'Mozilla/5.0' }
@@ -93,6 +95,22 @@ def getLinks_custom_search(searchfor):
         return None
     return hits
 
+#####
+# parse json to get the links from the response object
+#####
+def parseJson_cmu_search(jsonString):
+    hits = []
+    response = json.loads(jsonString)
+    if(response != None):
+        try:
+            resultList = response['results']
+            for res in resultList:
+                link = res['url']
+                hits.append(link)
+        except:
+            return hits
+    return hits
+
 
 ####
 # searchfor - entity to be searched.
@@ -101,7 +119,7 @@ def getLinks_custom_search(searchfor):
 ####
 def getLinks_cmu_search(searchfor):
     query = urllib.urlencode({'q': searchfor,'key': cmu_key})
-    
+
     request_url = cmu_search_url + '?' + query
 
     hits=[];
@@ -111,7 +129,7 @@ def getLinks_cmu_search(searchfor):
         req_res = urllib2.urlopen(req).read()
         hits = parseJson_cmu_search(req_res)
     except Exception,e:
-        print request_url 
+        print request_url
         print "cmu error ", e
         return None
 
@@ -121,12 +139,12 @@ def getLinks_cmu_search(searchfor):
     return hits
 
 
-def getLinks_api_search(searchfor, val): 
+def getLinks_api_search(searchfor, val):
     query = urllib.urlencode({'q': searchfor})
     url = api_search_url + query
     hits=[];
     num_queries = val*4
-    try:  
+    try:
         for start in range(0, num_queries, 4):
             request_url = '{0}&start={1}'.format(url, start)
             headers = { 'User-Agent' : 'Mozilla/5.0' }
@@ -161,49 +179,71 @@ def extractDataFromLink(queue, urls, filename, fileCount):
     dbObj = mdb.mongodbDatabase('doc_collection')
     docs = dbObj.docCollection
     down_doc = docs.find_one({'url':urls,'primaryEnt':filename})
-    
+
     if(down_doc == None or (down_doc['documents'] == None) or len(down_doc['documents'])==0):
         try:
-            extractor = Extractor(extractor='ArticleExtractor', url=urls)
-            extracted_text = extractor.getText()
-            cleanText = cleanTheExtraction(extracted_text)
+        #print "down load docs for ",urls
+            cleanText = ''
+            if(urls.endswith('.pdf')):
+                print "############# found pdf #############"
+                proxy_support = urllib2.ProxyHandler({"http":"proxy.iisc.ernet.in:3128"})
+                opener = urllib2.build_opener(proxy_support)
+                urllib2.install_opener(opener)
+                with open('filename','wb') as f:
+                    f.write(urllib2.urlopen(URL).read())
+                    f.close()
+                content = convert('filename')
+                cleanText = content.encode('utf-8','ignore')
+                # for w in content:
+                #     try:
+                #         encodedW = w.encode('utf-8')
+                #         cleanText += encodedW
+                #     except:
+                #         cleanText += ''
+            else:
+                extractor = Extractor(extractor='ArticleExtractor', url=urls)
+                extracted_text = extractor.getText()
+                cleanText = cleanTheExtraction(extracted_text)
+
             sentenceList = tokenizer.tokenize(cleanText)    #get sentences
-            
+
             if(len(sentenceList) > minLen):           # write to a file if the extraction size is greater than min no. of sentences
                 curFile = filename+str(fileCount)+'.txt'
                 # p = file('/tmp/extractions/'+curFile, 'w')
-                for s in sentenceList:
-                    try:
-                        if(ord(s) < 48 or ord(s) > 122):
-                            sentenceList.remove(s)
-                        else:
-                            print "@@@@@",s 
-                #         p.write(s)
-                #         p.write(" ")
-                    except:
-                        sentenceList.remove(s)
-                # p.close()
+                senList = []
+                for l in sentenceList:
+                    newl = l.encode('utf-8','ignore')
+                    # for s in l:
+                    #     try:
+                    #         # if(ord(s) < 44 or ord(s) > 122) and ord(s) != 32:
+                    #         #     pass
+                    #         # elif(ord(s) == 32):
+                    #         #     newl += ' '
+                    #         # else:
+                    #         newl += s.encode('utf-8')
+                    #     except:
+                    #         sentenceList.remove(l)
+                    senList.append(newl)
 
-                document = {'url': urls, 'documents':sentenceList, 'primaryEnt':filename}
+                document = {'url': urls, 'documents':senList, 'primaryEnt':filename}
                 if down_doc == None:
                     post_id = docs.insert_one(document) #.inserted_id
                 else:
                     docs.replace_one({'url': urls, 'primaryEnt':filename},document,True)
-                
+
                 sentenceString = ' '.join(sentenceList)
-                getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie   		
+                getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie
         except Exception, e:
-            # print "whats the error ",e
+            print "error in boilerpipe code: ",e," url: ", urls
             # print urls
             pass
     else:
         try:
-            curFile = filename+str(fileCount)+'.txt'
             oldVal = docs.find_one({'url':urls,'primaryEnt':filename})
             sentenceList = oldVal['documents']
             sentenceString = ' '.join(sentenceList)
-            
-            getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie	
-        except:
-            pass
+            # print "Sentence string type: ", type(sentenceString)
+            getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie
+        except Exception,e:
+            print "error in retrieving doc for ", urls,e
     dbObj.client.close()

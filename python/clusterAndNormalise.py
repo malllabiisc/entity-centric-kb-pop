@@ -11,6 +11,7 @@ import solr
 import csv
 import mongodbClass as mdb
 #from parMapNell import getNellRelations
+from getNameFromPhrase import getEntityName
 from pymongo import MongoClient
 
 newRelation = {}
@@ -29,6 +30,7 @@ ent2List = [];
 relList = [];
 probList = [];
 numpyMatrix = numpy.zeros((10,10))
+urlIdList = []
 #model = word2vec.Word2Vec.load_word2vec_format('../EntityCentricKB/GoogleNews-vectors-negative300.bin',binary=True)
 #model = gensim.models.Word2Vec.load('/tmp/symModel')
 model = word2vec.Word2Vec.load_word2vec_format('vectors.bin',binary=True)
@@ -75,7 +77,6 @@ def JKFilterForNoun(entity,flag):
         POS_NOUN_PROPER = "NNP"
     else:
         POS_NOUN_PROPER = "NN"
-    
     tokens = word_tokenize(entity)
     postag = nltk.pos_tag(tokens)
     posString=""
@@ -94,7 +95,7 @@ def JKFilterForNoun(entity,flag):
                 retStr = retStr + ' ' + e
         retStr = retStr.strip()
         return True,retStr
-## following for loop selects an entity part from the noun phrase
+    ## following for loop selects an entity part from the noun phrase
     for s in JKFilterNounsList:
         startIndex = posString.find(s)
         if startIndex != -1:
@@ -128,9 +129,7 @@ def JKFilterForNoun(entity,flag):
     for ge in goalEntity:
         if not (ge in entity):
             return False,''
-    
     return True,entSearch
-
 
 def SelectEntity(entSet):
     scoreDict = {}
@@ -193,9 +192,41 @@ def searchPrimaryEntity(line):
             return True
     return False
 
+def someRandomFunction(entNumber,outputLine,key):
+    mid1 = entity1ToFreebaseId.get(entNumber)
+    mid2 = entity2ToFreebaseId.get(entNumber)
+    if mid1 == None:
+        mid1 = ''
+    if mid2 == None:
+        mid2 = ''
+    
+    ent_flag = oneOrTwo(ent1List[entNumber])
+    fb1,filterEnt1 = getEntityName(ent1List[entNumber])
+    fb2,filterEnt2 = getEntityName(ent2List[entNumber])
+    
+    filterEnt1 = filterEnt1.strip()
+    filterEnt2 = filterEnt2.strip()
+    if (filterEnt1.lower()).count(entSearch.lower()) > 1:
+        filterEnt1 = entSearch
+    if (filterEnt2.lower()).count(entSearch.lower()) > 1:
+        filterEnt2 = entSearch
+    
+    isPrimaryEnt1 = searchPrimaryEntity(filterEnt1)
+    isPrimaryEnt2 = searchPrimaryEntity(filterEnt2)
+    curOutputList = []
+    if(fb1 and fb2 and len(filterEnt1)>0 and len(filterEnt2)>0 and (isPrimaryEnt1 or isPrimaryEnt2)):
+        if not (filterEnt1 + " " + relList[entNumber] + " " + filterEnt2 in outputLine):
+            curOutputList = [filterEnt1,relList[entNumber],filterEnt2,probList[entNumber],urlIdList[entNumber],key] # key is used as cluster id
+            outputLine.add(filterEnt1 + " " + relList[entNumber] + " " + filterEnt2)
+    return curOutputList,outputLine
+
 def posNewRelations():
+    cluster_obj = mdb.mongodbDatabase('cluster_info')
+    cluster_col = cluster_obj.docCollection
+
     fe_db = mdb.mongodbDatabase('final_triples')
     final_col = fe_db.docCollection
+    
     flag=0
     entNumber = 0
     keyList = nearEntityMapInCanopy.keys();
@@ -204,85 +235,38 @@ def posNewRelations():
     for i in keyList:
         ndlist = nearEntityMapInCanopy.get(i)
         for ndset in ndlist:
+            # print "ndlist size",len(ndlist)
             if(len(ndset)==1):
                 entNumber = ndset.pop()
-		ndset.add(entNumber)
-                mid1 = entity1ToFreebaseId.get(entNumber)
-                mid2 = entity2ToFreebaseId.get(entNumber)
-                if mid1 == None:
-                    mid1 = ''
-                if mid2 == None:
-                    mid2 = ''
-                
-                ent_flag = oneOrTwo(ent1List[entNumber])
-                if ent_flag:
-                    fb1,filterEnt1 = JKFilterForNoun(ent1List[entNumber],0)
-                    fb2,filterEnt2 = JKFilterForNoun(ent2List[entNumber],1)
-                else:
-                    fb1,filterEnt1 = JKFilterForNoun(ent1List[entNumber],1)
-                    fb2,filterEnt2 = JKFilterForNoun(ent2List[entNumber],0)
-                
-                filterEnt1 = filterEnt1.strip()
-                filterEnt2 = filterEnt2.strip()
-                if (filterEnt1.lower()).count(entSearch.lower()) > 1:
-                    filterEnt1 = entSearch
-                if (filterEnt2.lower()).count(entSearch.lower()) > 1:
-                    filterEnt2 = entSearch
-                
-                isPrimaryEnt1 = searchPrimaryEntity(filterEnt1)
-                isPrimaryEnt2 = searchPrimaryEntity(filterEnt2)
-##                print "is primary 1: ",isPrimaryEnt1
-##                print "is primary 2: ",isPrimaryEnt2
-                
-##                if fb1:
-##                    fb1 = checkValidNoun(filterEnt1)
-##                if fb2:
-##                    fb2 = checkValidNoun(filterEnt2)
-
-                if(fb1 and fb2 and len(filterEnt1)>0 and len(filterEnt2)>0 and (isPrimaryEnt1 or isPrimaryEnt2)):
-                    if not (filterEnt1 + " " + relList[entNumber] + " " + filterEnt2 in outputLine):
-                        outputEntityList.append([filterEnt1,relList[entNumber],filterEnt2,probList[entNumber]])
-                        outputLine.add(filterEnt1 + " " + relList[entNumber] + " " + filterEnt2)
+                ndset.add(entNumber)
+                curOutputList,outputLine = someRandomFunction(entNumber,outputLine,i)
+                if curOutputList != None and len(curOutputList) != 0:
+                    outputEntityList.append(curOutputList)
+                    clusterone = cluster_col.find_one({'primaryEnt':entSearch,'url':urlIdList[entNumber],'key':i})
+                    tmpdoc = {'primaryEnt':entSearch,'url':urlIdList[entNumber],'similar_facts':[curOutputList],'key':i}
+                    if clusterone == None:
+                        cluster_col.insert_one(tmpdoc)
+                    else:
+                        cluster_col.replace_one({'primaryEnt':entSearch,'url':urlIdList[entNumber],'key':i},tmpdoc,True)
             #outputEntityList.append([newEnt1,mid1,relList[entNumber],newEnt2,mid2,isPrimaryEnt])
             else:
                 clusterList = clusterRelation(ndset)
                 for subSets in clusterList:
                     if(len(subSets)>=1):
                         entNumber = SelectEntity(subSets)
-                        mid1 = entity1ToFreebaseId.get(entNumber)
-                        mid2 = entity2ToFreebaseId.get(entNumber)
-                        if mid1 == None:
-                            mid1 = ''
-                        if mid2 == None:
-                            mid2 = ''   
-                        ent_flag = oneOrTwo(ent1List[entNumber])
-                        if ent_flag:
-                            fb1,filterEnt1 = JKFilterForNoun(ent1List[entNumber],0)
-                            fb2,filterEnt2 = JKFilterForNoun(ent2List[entNumber],1)
-                        else:
-                            fb1,filterEnt1 = JKFilterForNoun(ent1List[entNumber],1)
-                            fb2,filterEnt2 = JKFilterForNoun(ent2List[entNumber],0)
-##                        print "sent ", filterEnt1
-##                        print "sent ", filterEnt2
-                        filterEnt1 = filterEnt1.strip()
-                        filterEnt2 = filterEnt2.strip()
-                        if (filterEnt1.lower()).count(entSearch.lower()) > 1:
-                            filterEnt1 = entSearch
-                        if (filterEnt2.lower()).count(entSearch.lower()) > 1:
-                            filterEnt2 = entSearch
+                        curOutputList,outputLine = someRandomFunction(entNumber,outputLine,i)
+                        if curOutputList != None and len(curOutputList) != 0:
+                            outputEntityList.append(curOutputList)
+                            allOutputList = []
+                            # print "len of set",len(subSets)
+                            for eno in subSets:
+                                allOutputList.append([ent1List[eno],relList[eno],ent2List[eno],probList[eno],urlIdList[eno]])
 
-                        isPrimaryEnt1 = searchPrimaryEntity(filterEnt1)
-                        isPrimaryEnt2 = searchPrimaryEntity(filterEnt2)
-
-##                        if fb1:
-##                            fb1 = checkValidNoun(filterEnt1)
-##                        if fb2:
-##                            fb2 = checkValidNoun(filterEnt2)
-                        
-                        if(fb1 and fb2 and len(filterEnt1)>0 and len(filterEnt2)>0 and (isPrimaryEnt1 or isPrimaryEnt2)):
-                            if not (filterEnt1 + " " + relList[entNumber] + " " + filterEnt2 in outputLine):
-                                outputEntityList.append([filterEnt1,relList[entNumber],filterEnt2,probList[entNumber]])
-                                outputLine.add(filterEnt1 + " " + relList[entNumber] + " " + filterEnt2)
+                            clusterone = cluster_col.find_one({'primaryEnt':entSearch,'url':urlIdList[entNumber],'key':i})
+                            if clusterone == None:
+                                cluster_col.insert_one({'primaryEnt':entSearch,'url':urlIdList[entNumber],'similar_facts':allOutputList,'key':i})
+                            else:
+                                cluster_col.replace_one({'primaryEnt':entSearch,'url':urlIdList[entNumber],'key':i},{'primaryEnt':entSearch,'url':urlIdList[entNumber],'similar_facts':allOutputList,'key':i},True)
     #fw = open('extractions/'+ entSearch+'/data/output/'+entSearch+'outputEnt.csv', 'w')
     #fileWriter = csv.writer(fw)
     #fileWriter.writerows(outputEntityList)
@@ -293,7 +277,7 @@ def posNewRelations():
     else:
         d = {'primaryEnt':entSearch,'final-triples':outputEntityList}
         final_col.replace_one({'primaryEnt':entSearch},d,True)
-    
+    cluster_obj.client.close()
     fe_db.client.close()
     #getNellRelations(outputLine)
     
@@ -719,41 +703,49 @@ def InitialSetup():
     global ent2List
     global relList
     global probList
+    global urlIdList
     noOfCanopyEntries = 0;
     
     # filename = entSearch+"list.txt"
     # data = open(filename).readlines()
     listofSet=[];
     col = dbObj.docCollection
-    oldVal = col.find_one({'primaryEnt':entSearch})
+    oldValues = col.find({'primaryEnt':entSearch})
+
     #print "triples extracted from ", entSearch
-    if oldVal == None:
+    if oldValues == None:
         print "No extractions", entSearch
         return None
-    data = oldVal.get('output_set')
-    
-    for line in data:
-        process = False;
-        for l in goalEntity:
-            if(l in line.lower() or (line.lower().find(l))!= -1):
-                process = True;
-        if(process):
-            entities =  list(find(line,':'));
-            if(len(entities)>=2):              #ent and rel are separated by ':' so get all those indexes.
-                ent1 = line[0:entities[0]]
-                numbers = re.findall(r'\[([^]]*)\]',ent1)
-                if(len(numbers) !=0):
-                    for num in numbers:
-                        ent1 = ent1.replace("["+num+"]","")
-                ent1 = ent1.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
-                ent1List.append(ent1)
-                
-                relList.append(line[entities[0]+1:entities[1]]) 
 
-                ent2 = line[entities[1]+1:entities[2]]
-                ent2 = ent2.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
-                ent2List.append(ent2)
-                probList.append(line[entities[2]+1:len(line)])
+
+    for oldVal in oldValues:
+        data = oldVal.get('output_set')
+        url = oldVal.get('url')
+    
+        for line in data:
+            process = False;
+            for l in goalEntity:
+                if(l in line.lower() or (line.lower().find(l))!= -1):
+                    process = True;
+            if(process):
+                entities =  list(find(line,':'));
+                if(len(entities)>=2):              #ent and rel are separated by ':' so get all those indexes.
+                    ent1 = line[0:entities[0]]
+                    numbers = re.findall(r'\[([^]]*)\]',ent1)
+                    if(len(numbers) !=0):
+                        for num in numbers:
+                            ent1 = ent1.replace("["+num+"]","")
+                    ent1 = ent1.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
+                    ent1List.append(ent1)
+                    
+                    relList.append(line[entities[0]+1:entities[1]]) 
+
+                    ent2 = line[entities[1]+1:entities[2]]
+                    ent2 = ent2.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
+                    ent2List.append(ent2)
+                    probList.append(line[entities[2]+1:len(line)])
+                    urlIdList.append(url)
+    
     #print "ent line score"+ str(len(ent1List))
     for k in range(0,len(ent2List),1):
         wordsInEnt2 = ent2List[k].split(' ')
@@ -783,6 +775,8 @@ def entityClusterAndNormalise(ent):
     global newEntityList
     global dbObj
     
+    print "inside c&n"
+
     dbObj =  mdb.mongodbDatabase('triples_collection')
     ent1List = []
     ent2List = []

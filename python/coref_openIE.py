@@ -19,7 +19,7 @@ primaryEnt = ''
 openieInput = "inputForOllie"
 corefOutput = "corefOutputFolder"
 config = {}
-execfile("config/config.txt", config) 
+execfile("config/config.txt", config)
 # python 3: exec(open("example.conf").read(), config)
 
 dbObj = None
@@ -69,20 +69,18 @@ def json2xml(json_obj, line_padding=""):
         return "\n".join(result_list)
 
     return "%s%s" % (line_padding, json_obj)
-  
+
 
 def xmlParseCorefResult_ET(xmldata):
-    #try:    
+    #try:
     #xmldoc = minidom.parse(filename) # coref output xml processed to get sentences
-    doc = ET.ElementTree(ET.fromstring(xmldata.encode('utf-8')))
-    print "parsing 1"
+    doc = ET.ElementTree(ET.fromstring(xmldata.encode('utf-8','ignore')))
     document = doc.findall('document')[0]
     sentences = document.findall('sentences')[0]
     sentenceList = sentences.findall('sentence')
     #sentences = xmldoc.getElementsByTagName('sentences')[0] #returns a list of things withing tag
     #sentenceList = sentences.getElementsByTagName('sentence')
     constructedSenList = []
-    print "done 0"
     for sen in sentenceList:
         constructSentence = ''
         #tokens = sen.getElementsByTagName('tokens')[0]
@@ -93,16 +91,16 @@ def xmlParseCorefResult_ET(xmldata):
             try:
                 wordMeta = w.findall('word')
                 #print "meta data",wordMeta[0].text
-                word = str((wordMeta[0].text).decode('utf-8'))
+                word = (wordMeta[0].text).encode('utf-8','ignore')
             except Exception,e:
                 word = '-LRB-'
                 print "inside error",e
-                
+
             if(word == ',' or word == '.'):
                 constructSentence = constructSentence.strip(' ')
             if word != '-LRB-' or word != '-RRB-':
                 constructSentence = constructSentence + str(word) + ' '
-        
+
         constructSentence = constructSentence.strip(' ')
         constructSentence = constructSentence.strip(', u ` ')
         constructSentence = constructSentence.strip('\'')
@@ -114,11 +112,11 @@ def xmlParseCorefResult_ET(xmldata):
 
 #####
 # read xml and construct sentence.
-##### 
+#####
 def xmlParseCorefResult(xmldata):
-    try:    
+    try:
         #xmldoc = minidom.parse(filename) # coref output xml processed to get sentences
-        xmldoc = xml.dom.minidom.parseString(xmldata.encode('utf-8'))
+        xmldoc = xml.dom.minidom.parseString(xmldata.encode('utf-8','ignore'))
         sentences = xmldoc.getElementsByTagName('sentences')[0] #returns a list of things withing tag
         sentenceList = sentences.getElementsByTagName('sentence')
         constructedSenList = []
@@ -133,18 +131,17 @@ def xmlParseCorefResult(xmldata):
                     constructSentence = constructSentence.strip(' ')
                 if word != '-LRB-' or word != '-RRB-':
                 	constructSentence = constructSentence + str(word) + ' '
-            
+
             constructSentence = constructSentence.strip(' ')
             constructSentence = constructSentence.strip(', u ` ')
             constructSentence = constructSentence.strip('\'')
             constructedSenList.append(constructSentence+'<TAB>')
-        
+
         generateTriples(constructedSenList)
     except Exception,e:
-        print "xml parse error",e
-        pass
-                
-def SentenceConstructionFromXML(corefdata):   
+        print "xml parse error",e, "for urls", currentUrl
+
+def SentenceConstructionFromXML(corefdata):
     xmlParseCorefResult_ET(corefdata)
 
 def getOllieFormat(openieList):
@@ -161,54 +158,57 @@ def generateTriples(sentenceList):
     global dbObj
     openieDir="openieOutputFolder";
     openIEService4 = config["openie4"]
-    openIEService5 = config["openie5"]
-    if randint(0,1) == 1:
-        openIEService = openIEService4
-    else:
-        openIEService = openIEService5
+#    openIEService5 = config["openie5"]
+#    if randint(0,1) == 1:
+    openIEService = openIEService4
+#    else:
+#        openIEService = openIEService5
 
     method = "POST"
     handler = urllib2.HTTPHandler()
     opener = urllib2.build_opener(handler)
-    sentenceList = ' '.join(sentenceList)
-    sentenceList = sentenceList.encode('utf-8')
-    data = urllib.urlencode({'data': sentenceList, 'del':'<TAB>'})
-    request = urllib2.Request(openIEService, data=data,  headers={'Content-type': 'text/plain'})
-    print "connecting ",openIEService
-    try:
-        connection = opener.open(request,timeout=200)
-        if connection.code == 200:
-            data = connection.read()
-            openiedata = json.loads(data)
-            
-            openiedata = openiedata["openieOutput"]
-            
-            openieOutputList = openiedata.split('--end of sentence--')
-            #print openieOutputList
-            col = dbObj.docCollection
-            oldVal = col.find_one({'url':currentUrl})
-            corefdata = oldVal['corenlp']
-            
-            tmp_doc = {'url':currentUrl, 'primaryEnt':primaryEnt, 'openie':openieOutputList,'corenlp':corefdata}
-            
-            col.replace_one({'url':currentUrl},tmp_doc,True)
-            connection.close()
-            print "openie done for", currentUrl
-    except urllib2.HTTPError,e:
-        connection = e
-        print "openie error", e.read()
-        connection.close()
+    openieOutputList = []
+    chunkSize = 30
+    for j in range(0, len(sentenceList),chunkSize):
+        sentenceStr = ' '.join(sentenceList[j:j+chunkSize])
+        # sentenceList = sentenceList.encode('utf-8')
+        # print "open ie type: ", type(sentenceStr)
+        data = urllib.urlencode({'data': sentenceStr, 'del':'<TAB>'})
+        request = urllib2.Request(openIEService, data=data,  headers={'Content-type': 'text/plain'})
+        # print "connecting ",openIEService
+        try:
+            connection = opener.open(request,timeout=200)
+            if connection.code == 200:
+                data = connection.read()
+                openiedata = json.loads(data)
+                openiedata = openiedata["openieOutput"]
+                openieOutput = openiedata.split('--end of sentence--')
+                for l in openieOutput:
+                    openieOutputList.append(l.encode('utf-8','ignore'))
+                print "openie done for", currentUrl
+        except urllib2.HTTPError,e:
+            connection = e
+            print "openie error", e.read(), "for urls", currentUrl
+            # connection.close()
+    
+    col = dbObj.docCollection
+    oldVal = col.find_one({'url':currentUrl})
+    corefdata = oldVal['corenlp']
+    tmp_doc = {'url':currentUrl, 'primaryEnt':primaryEnt, 'openie':openieOutputList,'corenlp':corefdata}
+    col.replace_one({'url':currentUrl},tmp_doc,True)
+    connection.close()
+    
 
 #########
 # call coref resolution
 # store the xml file generated.
-# construct sentence from the file generated  
+# construct sentence from the file generated
 #########
 def corefResolution(sentenceList):
-    global dbObj   	
+    global dbObj
     method = "POST"
-    corenlpService1 = config["corenlp1"]
-    corenlpService = corenlpService1
+    corenlpService = config["corenlp1"]
+
     # if randint(0,1) == 0:
     #     corenlpService = corenlpService1
     # else:
@@ -219,16 +219,16 @@ def corefResolution(sentenceList):
     # create an openerdirector instance
     opener = urllib2.build_opener(handler)
     # build a request
-    sentenceList = sentenceList.encode('utf-8')
+    sentenceList = sentenceList.encode('utf-8','ignore')
     data = urllib.urlencode({'data': sentenceList})
     request = urllib2.Request(corenlpService, data=data, headers={'Content-type': 'text/plain'})
-    print "trying to connect", corenlpService
+    # print "trying to connect", corenlpService
     try:
         connection = opener.open(request, timeout=200)
         if connection.code == 200:
             data = connection.read()
             data = data.replace('&lt;',"<")
-            data = data.replace('&gt;','>')           
+            data = data.replace('&gt;','>')
 
             corefdata = json.loads(data)
             corefdata = corefdata["xmlOutput"]
@@ -238,14 +238,15 @@ def corefResolution(sentenceList):
             col.insert_one(tmp_doc)
             connection.close()
             print "coref done for", currentUrl
+            # print "coref data type ", type(corefdata)
             SentenceConstructionFromXML(corefdata)
             #tree = ET.ElementTree(ET.fromstring(xmldata))
             #print tree.write('corefOutputFolder/'+xmlFile)
     except urllib2.HTTPError,e:
         connection = e
-        print "coref error", e.read()
+        print "coref error", e.read(), "for urls", currentUrl
         connection.close()
-    
+
 
 ###########
 # curFilename - filename  where xml output is stored
@@ -256,8 +257,8 @@ def getTripleList(sentenceList,url,priEnt):
     global primaryEnt
     global dbObj
     dbObj = mdb.mongodbDatabase('tmp_collection')
-    col = dbObj.docCollection 
-    
+    col = dbObj.docCollection
+
     currentUrl = url
     primaryEnt = priEnt
     if(col.find_one({'url':url,'primaryEnt':priEnt}) == None):
@@ -271,7 +272,6 @@ def getTripleList(sentenceList,url,priEnt):
             tmpobj = col.find_one({'url':url,'primaryEnt':priEnt})
             corefdata = tmpobj.get('corenlp')
             SentenceConstructionFromXML(corefdata)
-            print "done openie"
     dbObj.client.close()
 
 ##datal = open('abc.txt','r').readlines()

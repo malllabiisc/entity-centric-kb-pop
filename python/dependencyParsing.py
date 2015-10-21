@@ -29,7 +29,8 @@ def getDependencyList(filedata,senId):
     deIdtoNameDict = {}
     governorDict = {}
     try:
-        xmldoc = xml.dom.minidom.parseString(filedata)
+        # print "file data type", type(filedata)
+        xmldoc = xml.dom.minidom.parseString(filedata.encode('utf-8','ignore'))
         sentences = xmldoc.getElementsByTagName('sentences')[0]
         reqSentence = sentences.getElementsByTagName('sentence')[senId]
         dependencies = reqSentence.getElementsByTagName('dependencies')[0] #returns a list of things withing tag
