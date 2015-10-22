@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="UTF-8">
+  <title>Entity Centric KB Expansion</title>
+  <meta name="description" content="ENTICE">
+  <meta name="keywords" content="keyword1, keyword2, keyword3">
+  </head>
+  <body>
+    <div id="wrapper">
+      <div class="top_banner">
+          <h1> ENTICE <br/></h1>
+          <h2><p>ENTity CEntric KB Expansion</p></h2>
+      </div>
+      <div id="page_content">
+      <!--  <ul>
+          <li><a href="create a sheet for feedback">Feedback</a></li>
+        </ul> -->
+      <table>
+       <tr>
+       
+       <td align="center"> <h3> Extraction Info </h3> </td>
+       
+       </tr>
+       <tr>
+       <td>
+          <h3> Data Extracted from: </h3> <h7> <a href='{{ url }}'>{{ url }}</a> </h7>
+       </td>
+       </tr>
+       </table>
+       <h3>
+       Similar Facts and Extraction Info
+       </h3>
+       <table border="1">   
+       <tr>
+       <h4>
+       <td>Entity 1 </td>    <td> Relation </td>   <td> Entity 2 </td>  <td> extraction Score </td>  <td> Extracted URL </td>
+       </h4>
+       </tr>
+       {% for line in data %}
+       <tr>
+        {% for l in line.split(',')[:-1] %}
+          <td>
+        {% if l == line.split(',')[4]%}
+           <a href='{{ l }}'>{{ l }}</a>
+        {% else %}
+          {{ l }}
+        {% endif %}
+        </td>
+        {% endfor %}
+        </tr>
+      {% endfor %}
+      </table>
+        <!-- <tr>
+       <td>
+          {% if freebaseurl != None %}
+          <h3> More info at freebase : </h3> <h7> {{ freebaseurl }} </h7>
+          {% endif %}
+       </td>
+       </tr> -->
+        <!-- <tr>
+       <td>
+          {% if nellurl != None %}
+          <h3> Facts at NELL </h3> <h7> {{ nellurl }} </h7>
+          {% endif %}
+       </td>
+       </tr> -->
+      </table>
+      
+      <!-- <button onclick="goBack()">Go Back</button> -->
+       <form name="back" id="goback" method="GET" action="/datapage">
+       <input type="hidden" name="entSearch" value='{{ entSearch }}' id="entsearch">
+       <button type="back" value="back" id="goback"> Go Back </button>
+       </form>
+
+      <script>
+        function goBack() {
+            window.history.back();
+        }
+        </script>
+        <form name="back" id="back" method="GET" action="/clear">
+        <button type="back" value="Back" id="back">Start Page</button>
+        </form>
+      </div>
+      </div>
+  </body>
+</html> 

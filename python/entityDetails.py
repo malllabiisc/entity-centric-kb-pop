@@ -16,7 +16,7 @@ from boilerpipeTextExtraction import getLinks_api_search,getLinks_cmu_search, ge
 ########################################################################################
 from getEntities import collectEntities
 from clusterAndNormalise import entityClusterAndNormalise
-from dereferenceOllieOutput_new import ReplaceCorefPointers
+from dereferenceOllieOutput import ReplaceCorefPointers
 from ent_linking_kb import inference_test
 from WebScraping import webScraping
 
@@ -27,9 +27,7 @@ def Main(entToSearch,queryStrings):
     entList = []
     entLineList = []
         
-    # webScraping(entToSearch, queryStrings)
-    ReplaceCorefPointers(entToSearch)
-    collectEntities(entToSearch)
+    webScraping(entToSearch, queryStrings)
     entityClusterAndNormalise(entToSearch)
     success = inference_test(entToSearch)
     return success

@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ElementTree
 from xml.parsers import expat
 import mongodbClass as mdb
 from random import randint
+from dereferenceOllieOutput import ReplaceCorefPointers
 
 currentUrl = ''
 primaryEnt = ''
@@ -177,7 +178,7 @@ def generateTriples(sentenceList):
         request = urllib2.Request(openIEService, data=data,  headers={'Content-type': 'text/plain'})
         # print "connecting ",openIEService
         try:
-            connection = opener.open(request,timeout=200)
+            connection = opener.open(request,timeout=60)
             if connection.code == 200:
                 data = connection.read()
                 openiedata = json.loads(data)
@@ -197,7 +198,7 @@ def generateTriples(sentenceList):
     tmp_doc = {'url':currentUrl, 'primaryEnt':primaryEnt, 'openie':openieOutputList,'corenlp':corefdata}
     col.replace_one({'url':currentUrl},tmp_doc,True)
     connection.close()
-    
+    ReplaceCorefPointers(primaryEnt, currentUrl)
 
 #########
 # call coref resolution
@@ -224,7 +225,7 @@ def corefResolution(sentenceList):
     request = urllib2.Request(corenlpService, data=data, headers={'Content-type': 'text/plain'})
     # print "trying to connect", corenlpService
     try:
-        connection = opener.open(request, timeout=200)
+        connection = opener.open(request, timeout=100)
         if connection.code == 200:
             data = connection.read()
             data = data.replace('&lt;',"<")

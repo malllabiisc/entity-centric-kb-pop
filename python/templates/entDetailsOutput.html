@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="UTF-8">
+  <title>Entity Centric KB Expansion</title>
+  <meta name="description" content="ENTICE">
+  <meta name="keywords" content="keyword1, keyword2, keyword3">
+  </head>
+  <body>
+    <div id="wrapper">
+      <div class="top_banner">
+          <h1> ENTICE <br/></h1>
+          <h2><p>ENTity CEntric KB Expansion</p></h2>
+      </div>
+      <div id="page_content">
+      <!--  <ul>
+          <li><a href="create a sheet for feedback">Feedback</a></li>
+        </ul> -->
+       <table border="1">
+       <tr>
+       <h4>
+       <td>Entity 1 </td>
+       <td> Relation </td>
+       <td> NELL Relation </td>
+       <td>Entity 2 </td>
+       <td> Extraction Class </td>
+       </h4>
+       </tr>
+        {% for i, op in enumerate(output) %}
+        <tr>
+        {% for ol in op[:6] %}
+        <td>
+          {% if ol == op[5]%}
+            <form name="minf" id="minf" method="GET" action="/moreinfo">
+            <input type="hidden" name="moreinf" value='{{ op }}' id="moreinf">
+          <input type="hidden" name="entSearch" value='{{ entSearch }}' id="entSearch">
+            <input type="submit"  value='More info' >
+            </form>
+          {% elif ol == op[4] and (ol == 'NR-KE' or ol == 'KR-KE') %}
+            <a href='{{ op[7] }}'>{{ ol }}</a>
+          {% elif ol == op[2] and ol != '---' %}
+            <a href='{{ op[8] }}'>{{ ol }}</a>
+          {% else %}
+              {{ ol }}
+          {% endif %}
+        </td>
+        {% endfor %}        
+        </tr>  
+        {% endfor %}
+        </table>
+        <br/>
+        <form name="back" id="back" method="GET" action="/clear">
+        <button type="back" value="Back" id="back">Back</button>
+        </form>
+      </div>
+      <script type="text/javascript">
+        var _gaq = _gaq || [];
+        _gaq.push(['_setAccount', 'UA-31119754-1']);
+        _gaq.push(['_trackPageview']);
+
+        (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+        })();
+      </script>
+      </div>
+  </body>
+</html> 

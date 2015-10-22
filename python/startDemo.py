@@ -1,6 +1,6 @@
-from flask import Flask,url_for,request, jsonify
+from flask import Flask,url_for,request, jsonify,session
 from flask import render_template
-from flask import request
+from flask import request,redirect
 import pymongo
 from pymongo import MongoClient
 from entityDetails import Main
@@ -14,11 +14,13 @@ from nltk import word_tokenize, pos_tag
 app = Flask(__name__)
 app.config.update(
     threaded=True,
-    DEBUG=False,
+    DEBUG=True,
     PROPAGATE_EXCEPTIONS=True
 )
 
-app.entSearch1 = ''
+entSearch = ''
+app.secret_key = 'xxx'
+
 class mongodbDatabase:
     'this class handles all the write and read operations related to doc-database'
     # variable to store the total number of entities scraped.
@@ -91,86 +93,15 @@ def getType(ent):
 ### page redirections
 ##############################################
 ##############################################
-@app.route("/nellpage")
+@app.route("/datapage")
 def gotoNellPage():
-    selectedEnt = request.args.get('data')
-    if selectedEnt != None:
-        ent2 = selectedEnt.split(',')[3]
-        entType = getType(ent2)
-        
-
-
-@app.route("/moreinfo")
-def moreinfopage():
-    fact = request.args.get('moreinf')
-    entSearch = app.entSearch1.strip()
-    print "fact", fact
-    if len(fact)>=6:
-        fact = fact.encode('utf-8','ignore')
-        print "type of fact",type(fact)
-        factList = fact.split(',')
-        ent2 = factList[3]
-        linktoInfoPage = str(factList[5].strip().strip('\n').strip("'"))
-        clusterID = str(factList[6].strip().strip("'"))
-        cluster_obj = mongodbDatabase('cluster_info')
-        cluster_col = cluster_obj.docCollection
-        
-        # if freebaseid != None:
-        #     freebaseurl = "https://www.freebase.com"+freebaseid
-        #     print "freebase url ", freebaseurl
-        
-
-        if linktoInfoPage != None:        
-            print "link="+str(linktoInfoPage), "linktype", type(linktoInfoPage)
-            print "clusterid="+str(clusterID), "cid type ", type(clusterID)
-            print "primaryEnt="+str(entSearch)
-            oldVal = cluster_col.find_one({'primaryEnt':entSearch, 'url':linktoInfoPage, 'key':clusterID})
-            if oldVal == None:
-                print "No extractions--"
-                return render_template('errorPage.html', error="No info available")
-            else:
-                data = oldVal.get('similar_facts')
-                allSimFacts = []
-                for d in data:
-                    facts = ','.join(d).encode('utf-8','ignore') + "\n"
-                    allSimFacts.append(facts)
-                return render_template('moreinfopage.html', data=allSimFacts, url = linktoInfoPage)
-        else:
-            return render_template('errorPage.html', error="No info available")
-
-
-@app.route("/page2")
-def page2():
-    # newProc = Process(target=extractDataFromLink, args=[q, link, entToSearch,fileCount])# call a function to do corenlp->sentcreate->ollie
-    # fileCount += 1;
-    # processList.append(newProc)
-    # newProc.start()
-    # for p in processList:
-    #     p.join()
-
-    entToSearch = request.args.get('fname')
-    abc = entToSearch
-    app.entSearch1 = entToSearch
-    queryStrings = request.args.get('qname')
-    queryWords = []
-    for q in queryStrings.split(','):
-        queryWords.append(q)
-    
-    outputFileName = 'output/'+entToSearch.replace(' ','_') +'.csv'
-    try:
-      success = Main(entToSearch,queryWords)
-    except Exception,e:
-      success = False
-      print e
-
-    if success:
+    entSearch = request.args.get('entSearch')
+    if entSearch != None:
         mappedTriplesObj = mongodbDatabase('nell_mapped_triples_collection')
         nellMapCol = mappedTriplesObj.docCollection
-        mappedTriples = nellMapCol.find_one({'primaryEnt':entToSearch})
+        mappedTriples = nellMapCol.find_one({'primaryEnt':entSearch})
         if mappedTriples != None:
             mappedTriplesList = mappedTriples.get('mapped-triples')
-            print "type0 ", type(mappedTriplesList)
-            print "type1 ", type(mappedTriplesList[0][0])
             output = []
             for mt in mappedTriplesList:
                 l = []
@@ -178,9 +109,79 @@ def page2():
                     x = mp.encode('utf-8','ignore')
                     l.append(x)
                 output.append(l)
-            print "output type ", type(output[0][0]), "value ",output[0][0]
         mappedTriplesObj.client.close()
-        return render_template('entDetailsOutput.html', output=output, enumerate=enumerate)
+        return render_template('entDetailsOutput.html', output=output, enumerate=enumerate,entSearch=entSearch)
+    else:
+    	return render_template('errorPage.html', error="No info available")
+        
+@app.route("/moreinfo")
+def moreinfopage():
+    global entSearch
+    print "ent search",entSearch
+    fact = request.args.get('moreinf')
+    print "fact", fact
+    entSearch = request.args.get('entSearch')
+    if len(fact)>=6:
+		fact = fact.encode('utf-8','ignore')
+		print "type of fact",type(fact)
+		factList = fact.split(',')
+		ent2 = factList[3]
+		linktoInfoPage = str(factList[5].strip().strip('\n').strip("'"))
+		clusterID = str(factList[6].strip().strip("'"))
+		cluster_obj = mongodbDatabase('cluster_info')
+		cluster_col = cluster_obj.docCollection
+		if linktoInfoPage != None:
+			print "link="+str(linktoInfoPage), "linktype", type(linktoInfoPage)
+			print "clusterid="+str(clusterID), "cid type ", type(clusterID)
+			print "primaryEnt="+entSearch
+			oldVal = cluster_col.find_one({'primaryEnt':entSearch, 'url':linktoInfoPage, 'key':clusterID})
+			if oldVal == None:
+				print "No extractions--"
+				return render_template('errorPage.html', error="No info available")
+			else:
+				data = oldVal.get('similar_facts')
+				allSimFacts = []
+				for d in data:
+					facts = ','.join(d).encode('utf-8','ignore') + "\n"
+					allSimFacts.append(facts)
+					return render_template('moreinfopage.html', data=allSimFacts, url = linktoInfoPage,  entSearch=entSearch)
+		else:
+			return render_template('errorPage.html', error="No info available")
+
+
+@app.route("/page2")
+def page2():
+    global entSearch
+    entSearch = request.args.get('fname')
+    session['entsearch'] = entSearch
+    # app.entSearch = entSearch
+    queryStrings = request.args.get('qname')
+    queryWords = []
+    for q in queryStrings.split(','):
+        queryWords.append(q)
+    
+    outputFileName = 'output/'+entSearch.replace(' ','_') +'.csv'
+    try:
+      success = Main(entSearch,queryWords)
+    except Exception,e:
+      success = False
+      print e
+
+    if success:
+        mappedTriplesObj = mongodbDatabase('nell_mapped_triples_collection')
+        nellMapCol = mappedTriplesObj.docCollection
+        mappedTriples = nellMapCol.find_one({'primaryEnt':entSearch})
+        if mappedTriples != None:
+            mappedTriplesList = mappedTriples.get('mapped-triples')
+            output = []
+            for mt in mappedTriplesList:
+                l = []
+                for mp in mt:
+                    x = mp.encode('utf-8','ignore')
+                    l.append(x)
+                output.append(l)
+        mappedTriplesObj.client.close()
+        return render_template('entDetailsOutput.html', output=output, enumerate=enumerate,entSearch=entSearch)
         
         # 0     1       2           3       4       5               6           7
         # ent1, rel, nellrelation, ent2, exttype, urlof data ext, clusterid, nellurl       
@@ -224,8 +225,17 @@ def status_update():
     
     return jsonify(result=statusDict)
 
+@app.route('/clear')
+def clearsession():
+    # Clear the session
+    session.clear()
+    # Redirect the user to the main page
+    return redirect(url_for('page1'))
+
 @app.route("/")
 def page1():
-	#return render_template('page1.html',form=form)
+	# app.entSearch = ''
+	print "new search started"
+	entSearch = ''
 	return render_template('startDemo.html')
 

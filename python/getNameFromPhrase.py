@@ -7,10 +7,12 @@ from nltk import word_tokenize, pos_tag
 import csv
 
 
-JKFilterNounsList = ['nnp_nnp_nnp_nnp','nnp_nnp_nnp','jj_nnp_nnp','nnp_nnp_in_nnp','nnp_nnp','nnp_pr_nnp','nnp_in_nnp','jj_nnp','cd_nnp_cd','cd_nnp','nnp_cd','nnp_nnp','nnp',
-					 'nn_nn_nn_nn','nn_nn_nn','jj_nn_nn','nn_nn_in_nn','nn_nn','nn_pr_nn','nn_in_nn','jj_nn','cd_nn_cd','cd_nn','nn_cd','nn_nn','nn','jj','cd'
+JKFilterNounsList_all = ['nnp_nnp_nnp_nnp','nnp_nnp_nnp','jj_nnp_nnp','nnp_nnp_in_nnp','nnp_nnp','nnp_pr_nnp','nnp_in_nnp','jj_nnp','cd_nnp_cd','cd_nnp','nnp_cd','nnp_nnp','nnp',
+					 'nn_nn_nn_nn','nn_nn_nn','jj_nn_nn','nn_nn_in_nn','nn_nn','nn_pr_nn','nn_in_nn','jj_nn','cd_nn_cd','cd_nn','nn_cd','nn','jj','cd'
 					]        #nnx - NNP or NNS JJ CC PRP
-
+JKFilterNounsList = ['nnp_nnp_nnp_nnp','nnp_nnp_nnp','jj_nnp_nnp','nnp_nnp_in_nnp','nnp_nnp','nnp_pr_nnp','nnp_in_nnp','jj_nnp','cd_nnp_cd','cd_nnp','nnp_cd','nnp_nnp','nnp',
+					 'nn_nn_nn_nn','nn_nn_nn','jj_nn_nn','nn_nn_in_nn','jj_nn','cd_nn_cd','cd'
+					]      
 class WordPOSTag:
 	''' this class instance will be a tuple of pos tag and respective phrase
 		eg. (nnp_nnp,Manjunath_Hegde)

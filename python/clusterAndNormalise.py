@@ -281,8 +281,8 @@ def posNewRelations():
     fe_db.client.close()
     #getNellRelations(outputLine)
     
-def find(str, ch):
-    for i, ltr in enumerate(str):
+def find(strs, ch):
+    for i, ltr in enumerate(strs):
         if ltr == ch:
             yield i
 
@@ -360,9 +360,9 @@ def findSimilarity(ent1,ent2,canopyId,ent1id,ent2id):
         return sim;
     else:
         for w1 in wordList1:
-            c1 = wordCountDict.get(w1);
-            if(c1 == None):
-                c1=1;
+            # c1 = wordCountDict.get(w1);
+            # if(c1 == None):
+            c1=1;
             cs = set()
             for w2 in wordList2:
                 if(len(w1)>0 and len(w2)>0):
@@ -684,8 +684,9 @@ def searchClueweb(entityList,entityToFreebaseId):
             if(len(response.results)>=1):
                 for hit in response.results:
                     entityToFreebaseId.update({k:hit['author']})
+                    print "success in cn",k
         except:
-            pass
+            print "fail in cn",k
     return entityToFreebaseId
 
 def oneOrTwo(entList):
@@ -712,46 +713,56 @@ def InitialSetup():
     col = dbObj.docCollection
     oldValues = col.find({'primaryEnt':entSearch})
 
-    #print "triples extracted from ", entSearch
+    print "triples extracted from ", entSearch
     if oldValues == None:
         print "No extractions", entSearch
         return None
 
-
+    
     for oldVal in oldValues:
         data = oldVal.get('output_set')
-        url = oldVal.get('url')
-    
-        for line in data:
-            process = False;
-            for l in goalEntity:
-                if(l in line.lower() or (line.lower().find(l))!= -1):
-                    process = True;
-            if(process):
-                entities =  list(find(line,':'));
-                if(len(entities)>=2):              #ent and rel are separated by ':' so get all those indexes.
-                    ent1 = line[0:entities[0]]
-                    numbers = re.findall(r'\[([^]]*)\]',ent1)
-                    if(len(numbers) !=0):
-                        for num in numbers:
-                            ent1 = ent1.replace("["+num+"]","")
-                    ent1 = ent1.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
-                    ent1List.append(ent1)
-                    
-                    relList.append(line[entities[0]+1:entities[1]]) 
 
-                    ent2 = line[entities[1]+1:entities[2]]
-                    ent2 = ent2.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
-                    ent2List.append(ent2)
-                    probList.append(line[entities[2]+1:len(line)])
-                    urlIdList.append(url)
-    
+        uniurl = oldVal.get('url')
+        url = uniurl.encode('utf-8','ignore')
+        print "len of data ",len(data), "url ",url
+        for uniline in data:
+            try:
+                line = uniline.encode('utf-8','ignore')
+                process = False;
+                for l in goalEntity:
+                    if(l in line.lower() or (line.lower().find(l))!= -1):
+                        process = True;
+                if(process):
+                    entities =  list(find(line,':'));
+                    if(len(entities)>=2):              #ent and rel are separated by ':' so get all those indexes.
+                        ent1 = line[0:entities[0]]
+                        # print "test 0"
+                        numbers = re.findall(r'\[([^]]*)\]',ent1)
+                        # print "test 1"
+                        if(len(numbers) !=0):
+                            for num in numbers:
+                                ent1 = ent1.replace("["+num+"]","")
+                        ent1 = ent1.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
+                        ent1List.append(ent1)
+                        relList.append(line[entities[0]+1:entities[1]]) 
+
+                        ent2 = line[entities[1]+1:entities[2]]
+                        ent2 = ent2.replace(" LRB ", "").replace(" RRB ", "").replace(",", "")
+                        ent2List.append(ent2)
+                        probList.append(line[entities[2]+1:len(line)])
+                        urlIdList.append(url)
+            except Exception,e:
+                print "error in init ", e
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
+   
     #print "ent line score"+ str(len(ent1List))
+    # print "test 3.0"
     for k in range(0,len(ent2List),1):
-        wordsInEnt2 = ent2List[k].split(' ')
-        wordCount(wordsInEnt2)
+        # wordsInEnt2 = ent2List[k].split(' ')
+        # wordCount(wordsInEnt2)
         process = oneOrTwo(ent2List[k])
-
         if(process):
             noOfCanopyEntries = constructCanopy(ent1List[k],k,noOfCanopyEntries)
         else:
@@ -775,8 +786,6 @@ def entityClusterAndNormalise(ent):
     global newEntityList
     global dbObj
     
-    print "inside c&n"
-
     dbObj =  mdb.mongodbDatabase('triples_collection')
     ent1List = []
     ent2List = []
@@ -803,12 +812,11 @@ def entityClusterAndNormalise(ent):
         print "no key word in goal entity",entSearch
         return
     InitialSetup();
-    entity1ToFreebaseId =  searchClueweb(ent1List,entity1ToFreebaseId);
-    entity2ToFreebaseId =  searchClueweb(ent2List,entity2ToFreebaseId);
+    # entity1ToFreebaseId =  searchClueweb(ent1List,entity1ToFreebaseId);
+    # entity2ToFreebaseId =  searchClueweb(ent2List,entity2ToFreebaseId);
     clusterInCanopy()
     MergeClusters()
     posNewRelations()
-    printTheGraph()
     dbObj.client.close()
     
 

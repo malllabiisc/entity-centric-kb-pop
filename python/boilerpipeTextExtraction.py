@@ -194,12 +194,6 @@ def extractDataFromLink(queue, urls, filename, fileCount):
                     f.close()
                 content = convert('filename')
                 cleanText = content.encode('utf-8','ignore')
-                # for w in content:
-                #     try:
-                #         encodedW = w.encode('utf-8')
-                #         cleanText += encodedW
-                #     except:
-                #         cleanText += ''
             else:
                 extractor = Extractor(extractor='ArticleExtractor', url=urls)
                 extracted_text = extractor.getText()
@@ -209,20 +203,9 @@ def extractDataFromLink(queue, urls, filename, fileCount):
 
             if(len(sentenceList) > minLen):           # write to a file if the extraction size is greater than min no. of sentences
                 curFile = filename+str(fileCount)+'.txt'
-                # p = file('/tmp/extractions/'+curFile, 'w')
                 senList = []
                 for l in sentenceList:
                     newl = l.encode('utf-8','ignore')
-                    # for s in l:
-                    #     try:
-                    #         # if(ord(s) < 44 or ord(s) > 122) and ord(s) != 32:
-                    #         #     pass
-                    #         # elif(ord(s) == 32):
-                    #         #     newl += ' '
-                    #         # else:
-                    #         newl += s.encode('utf-8')
-                    #     except:
-                    #         sentenceList.remove(l)
                     senList.append(newl)
 
                 document = {'url': urls, 'documents':senList, 'primaryEnt':filename}
@@ -235,8 +218,9 @@ def extractDataFromLink(queue, urls, filename, fileCount):
                 getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie
         except Exception, e:
             print "error in boilerpipe code: ",e," url: ", urls
-            # print urls
-            pass
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
     else:
         try:
             oldVal = docs.find_one({'url':urls,'primaryEnt':filename})
@@ -246,4 +230,7 @@ def extractDataFromLink(queue, urls, filename, fileCount):
             getTripleList(sentenceString,urls,filename)# call a function to do corenlp->sentcreate->ollie
         except Exception,e:
             print "error in retrieving doc for ", urls,e
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
     dbObj.client.close()

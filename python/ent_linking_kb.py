@@ -278,12 +278,13 @@ def inference_test(entSearch):
             else:
                 nellMapCol.replace_one({'primaryEnt':entSearch},{'primaryEnt':entSearch, 'mapped-triples':finalList},True)
 
-            outputFileName = 'output/'+entSearch.replace(' ','_') +'.csv'
-            fw = open(outputFileName, 'w')
-            fileWriter = csv.writer(fw)
-            fileWriter.writerows(finalList)
+            # outputFileName = 'output/'+entSearch.replace(' ','_') +'.csv'
+            # fw = open(outputFileName, 'w')
+            # fileWriter = csv.writer(fw)
+            # fileWriter.writerows(finalList)
+            # finalList = []
+            # fw.close()
             finalList = []
-            fw.close()
             nellMapObj.client.close()
             dbObj.client.close()
             return True

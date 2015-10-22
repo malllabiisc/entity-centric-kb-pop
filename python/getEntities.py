@@ -31,131 +31,126 @@ def getRelationAndEntity(line):
          return prob+"_"+ent1+"_"+rel1+"_"+ent2;
     return None;
 
-def collectEntities(primaryEnt):
+def collectEntities(primaryEnt,url):
     print "inside getent"
     global dbObj
     dbObj = mdb.mongodbDatabase('triples_collection')
+
     allExt = mdb.mongodbDatabase('all_ext_collection')
     allExtCol = allExt.docCollection
-    extObjects = allExtCol.find({'primaryEnt':primaryEnt})
-    if extObjects == None:
+    extObj = allExtCol.find_one({'primaryEnt':primaryEnt,'url':url})
+    if extObj == None:
         print "No extractions", primaryEnt
         return None
 
-##    p = file('input/final/scientists.txt', 'a')
-##    p.write(primaryEnt)
-##    p.close()
-    for extObj in extObjects:
+    data = extObj.get('extList')
+    ent1List = [];
+    ent2List = [];
+    relList = [];
+    probList = []
 
-        data = extObj.get('extList')
-        url = extObj.get('url')
-        #data = open(filename).readlines()
-        ent1List = [];
-        ent2List = [];
-        relList = [];
-        probList = []
-
-        for line in data:
-          if len(line) > 1:                                 #if the line has some string
-            result = getRelationAndEntity(line);
-            if(result != None):
-                ereList = result.split("_")
-                if(len(ereList[2].split(' ')) < 7 and len(ereList[3].split(' ')) < 8):
-                    e2 = ereList[3].strip()
-                    r = ereList[2].strip()
-                    try:
-                        words1 = word_tokenize(e2);
-                        postag1 = nltk.pos_tag(words1)
-                        if(len(postag1)>0):
-                            w1 = postag1[0]
-                            if(w1[1] == "IN" or w1[1] == "PREP" or w1[1] == "TO"):
-                                tmp = e2.split(' ')
-                                e2 = ' '.join(tmp[1:])
-                                r = r + " " + str(tmp[0])
-                                ent1List.append(ereList[1]);                         #store ent1, rel and ent2
-                                ent2List.append(e2);
-                                relList.append(r);
-                                probList.append(ereList[0])
-                                #print ereList[1], " --> ", r
-                            else:
-                                probList.append(ereList[0]);
-                                ent1List.append(ereList[1]);                         #store ent1, rel and ent2
-                                ent2List.append(ereList[3]);
-                                relList.append(ereList[2]);
-                    except Exception,e:
-                        print "error ",e
+    for line in data:
+      line = line.encode('utf-8','ignore')
+      if len(line) > 1:                                 #if the line has some string
+        result = getRelationAndEntity(line);
+        if(result != None):
+            ereList = result.split("_")
+            if(len(ereList[2].split(' ')) < 7 and len(ereList[3].split(' ')) < 8):
+                e2 = ereList[3].strip()
+                r = ereList[2].strip()
+                try:
+                    words1 = word_tokenize(e2);
+                    postag1 = nltk.pos_tag(words1)
+                    if(len(postag1)>0):
+                        w1 = postag1[0]
+                        if(w1[1] == "IN" or w1[1] == "PREP" or w1[1] == "TO"):
+                            tmp = e2.split(' ')
+                            e2 = ' '.join(tmp[1:])
+                            r = r + " " + str(tmp[0])
+                            ent1List.append(ereList[1]);                         #store ent1, rel and ent2
+                            ent2List.append(e2);
+                            relList.append(r);
+                            probList.append(ereList[0])
+                            #print ereList[1], " --> ", r
+                        else:
+                            probList.append(ereList[0]);
+                            ent1List.append(ereList[1]);                         #store ent1, rel and ent2
+                            ent2List.append(ereList[3]);
+                            relList.append(ereList[2]);
+                except Exception,e:
+                    print "error ",e
 
 
-        finalTripleSet = set()
-        for i in range(len(ent1List)):
-            prob = probList[i]
-            pent = ent1List[i];
-            strent = ent2List[i];
-            strrel = relList[i];
+    finalTripleSet = set()
+    for i in range(len(ent1List)):
+        prob = probList[i]
+        pent = ent1List[i];
+        strent = ent2List[i];
+        strrel = relList[i];
 
-            pent = pent.replace(")","").replace("-"," ")
-            pent = pent.replace("(","")
-            numbers = re.findall(r'\[([^]]*)\]',strent)
-            if(len(numbers) !=0):
-                for num in numbers:
-                    strent = string.replace(strent,"["+num+"]","")
+        pent = pent.replace(")","").replace("-"," ")
+        pent = pent.replace("(","")
+        numbers = re.findall(r'\[([^]]*)\]',strent)
+        if(len(numbers) !=0):
+            for num in numbers:
+                strent = string.replace(strent,"["+num+"]","")
 
-            numbers = re.findall(r'\[([^]]*)\]',strrel)
-            if(len(numbers) !=0):
-                for num in numbers:
-                    strrel = string.replace(strrel,"["+num+"]","")
+        numbers = re.findall(r'\[([^]]*)\]',strrel)
+        if(len(numbers) !=0):
+            for num in numbers:
+                strrel = string.replace(strrel,"["+num+"]","")
 
-            numbers = re.findall(r'\[([^]]*)\]',pent)
-            if(len(numbers) !=0):
-                for num in numbers:
-                    pent = string.replace(pent,"["+num+"]","")
-            if(not('[attrib=' in strent)):
-                strent = strent.strip('.')
-                strent = strent.strip(',')
-                strent = strent.strip()
+        numbers = re.findall(r'\[([^]]*)\]',pent)
+        if(len(numbers) !=0):
+            for num in numbers:
+                pent = string.replace(pent,"["+num+"]","")
+        if(not('[attrib=' in strent)):
+            strent = strent.strip('.')
+            strent = strent.strip(',')
+            strent = strent.strip()
 
-                pent = pent.strip('.')
-                pent = pent.strip(',')
-                pent = pent.strip()
+            pent = pent.strip('.')
+            pent = pent.strip(',')
+            pent = pent.strip()
 
-                strent = strent.replace("\"", "").replace("-"," ")
-                strent = string.replace(strent, ")", "")
-                strent = string.replace(strent,"(","")
-                strent = string.replace(strent,"\'","")
-                strrel = strrel.strip()
-                strrel = string.replace(strrel,",","")
-                strrel = string.replace(strrel,"\'","")
-                strrel = string.replace(strrel,")","")
+            strent = strent.replace("\"", "").replace("-"," ")
+            strent = string.replace(strent, ")", "")
+            strent = string.replace(strent,"(","")
+            strent = string.replace(strent,"\'","")
+            strrel = strrel.strip()
+            strrel = string.replace(strrel,",","")
+            strrel = string.replace(strrel,"\'","")
+            strrel = string.replace(strrel,")","")
 
-                triple_i = pent + " : " + strrel + " : " + strent + ":" + prob;
-                finalTripleSet.add(triple_i)
+            triple_i = pent + " : " + strrel + " : " + strent + ":" + prob;
+            finalTripleSet.add(triple_i)
 
+    tripleList = []
+    for i in finalTripleSet:
+        tripleList.append(i)
+
+    # store the extracted triple list in the database as processed data
+    # primary entity will be the key and triples are stored as document
+    col = dbObj.docCollection
+    oldVal = col.find_one({'primaryEnt':primaryEnt,'url':url})
+
+    if oldVal == None:
+        newVal = {'primaryEnt':primaryEnt, 'url':url,'output_set':tripleList}
+        print "inserted into triples list ", primaryEnt, "len", len(tripleList)
+        col.insert_one(newVal)
+    else:
+        # convert oldlist to set. remove duplicates
+        oldList = oldVal.get('output_set')
+
+        for o in oldList:
+            finalTripleSet.add(o)
         tripleList = []
-        for i in finalTripleSet:
-            tripleList.append(i)
+        for t in finalTripleSet:
+            tripleList.append(t)
 
-        # store the extracted triple list in the database as processed data
-        # primary entity will be the key and triples are stored as document
-        col = dbObj.docCollection
-        oldVal = col.find_one({'primaryEnt':primaryEnt,'url':url})
-
-        if oldVal == None:
-            newVal = {'primaryEnt':primaryEnt, 'url':url,'output_set':tripleList}
-            print "inserted into triples list ", primaryEnt
-            col.insert_one(newVal)
-        else:
-            # convert oldlist to set. remove duplicates
-            oldList = oldVal.get('output_set')
-
-            for o in oldList:
-                finalTripleSet.add(o)
-            tripleList = []
-            for t in finalTripleSet:
-                tripleList.append(t)
-
-            newVal =  {'primaryEnt':primaryEnt, 'url': url, 'output_set':tripleList}
-            col.replace_one({'primaryEnt':primaryEnt, 'url':url},newVal,True)
-            print "updated the triple list", primaryEnt
+        newVal =  {'primaryEnt':primaryEnt, 'url': url, 'output_set':tripleList}
+        col.replace_one({'primaryEnt':primaryEnt, 'url':url},newVal,True)
+        print "updated the triple list", primaryEnt, "len", len(tripleList)
     allExt.client.close()
     dbObj.client.close()
 
