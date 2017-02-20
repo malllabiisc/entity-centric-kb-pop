@@ -1,4 +1,0 @@
-api_key="AIzaSyAjhJ4e80-XUb3bFmczCIa-d8XbOkDKoDc"
-cx_key="010095144725022088553:elcfp7y7wg0"
-cmu_key="rtw12345678rtw"
-bing_keys="yVtO/RnfVuovRn+Xb4cGDSfpGy85uiBYkw/wgtfevS4"
